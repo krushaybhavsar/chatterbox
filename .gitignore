@@ -1,13 +1,12 @@
-node_modules/
-.expo/
-npm-debug.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
+# Expo
+.expo
+__generated__
+web-build
 
-# macOS
-.DS_Store
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# VSCode
+.history/
