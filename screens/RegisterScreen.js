@@ -32,7 +32,7 @@ const RegisterScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#2C6BED" />
+      <StatusBar barStyle="light" backgroundColor="#2C6BED" />
       <Text style={styles.registerTitle}>Create a Chatterbox Account</Text>
       <View style={styles.inputContainer}>
         <Input
@@ -63,7 +63,11 @@ const RegisterScreen = ({ navigation }) => {
         />
       </View>
 
-      <TouchableOpacity style={styles.signUpButton} onPress={register}>
+      <TouchableOpacity
+        activeOpacity={0.5}
+        style={styles.signUpButton}
+        onPress={register}
+      >
         <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
           {"Sign Up"}
         </Text>

@@ -33,7 +33,7 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#2C6BED" />
+      <StatusBar barStyle="light" backgroundColor="#2C6BED" />
       <Image
         source={require("../assets/login_1.png")}
         style={styles.loginImage}
@@ -53,12 +53,17 @@ const LoginScreen = ({ navigation }) => {
           onChangeText={(text) => setPassword(text)}
         />
       </View>
-      <TouchableOpacity style={styles.loginButton} onPress={signIn}>
+      <TouchableOpacity
+        activeOpacity={0.5}
+        style={styles.loginButton}
+        onPress={signIn}
+      >
         <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
           {"Login"}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
+        activeOpacity={0.5}
         style={styles.registerButton}
         onPress={() => navigation.navigate("Register")}
       >

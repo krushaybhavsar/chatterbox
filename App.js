@@ -6,6 +6,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import HomeScreen from "./screens/HomeScreen";
+import AddChatScreen from "./screens/AddChatScreen";
+import ChatScreen from "./screens/ChatScreen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from "./colors";
 
@@ -37,6 +39,8 @@ export default function App() {
             options={{ title: "Sign Up" }}
           />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="AddChat" component={AddChatScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
