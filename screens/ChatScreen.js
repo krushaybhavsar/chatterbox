@@ -11,7 +11,6 @@ import { ScrollView } from "react-native";
 import { TextInput } from "react-native";
 import { theme } from "../colors";
 import { Keyboard } from "react-native";
-import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import firebase from "firebase";
 import { db, auth } from "../firebase";
 import { LogBox } from "react-native";
@@ -23,6 +22,25 @@ const ChatScreen = ({ navigation, route }) => {
   const [messages, setMessages] = useState([]);
 
   const scrollViewRef = useRef();
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }
+    );
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -77,7 +95,17 @@ const ChatScreen = ({ navigation, route }) => {
   }, [navigation, messages]);
 
   const sendMessage = () => {
-    // Keyboard.dismiss();
+    const updateNumber = firebase.firestore.FieldValue.increment(1);
+
+    // messages[0]["data"]["displayName"] !== auth.currentUser.displayName
+    // db.collection("chats")
+    //   .doc(route.params.id)
+    //   .onSnapshot((snapshot) =>
+    //     // console.log(messages[snapshot.get("chatSize")]["data"]["displayName"])
+    //     // console.log(snapshot.get("chatSize"))
+    //     console.log(messages.length)
+    //   );
+
     if (input.trim() !== "") {
       db.collection("chats").doc(route.params.id).collection("messages").add({
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
@@ -85,6 +113,9 @@ const ChatScreen = ({ navigation, route }) => {
         displayName: auth.currentUser.displayName,
         email: auth.currentUser.email,
         photoURL: auth.currentUser.photoURL,
+      });
+      db.collection("chats").doc(route.params.id).update({
+        chatSize: updateNumber,
       });
     }
     setInput("");
@@ -164,8 +195,8 @@ const ChatScreen = ({ navigation, route }) => {
                       uri: data.photoURL,
                     }}
                   /> */}
-                  <Text style={styles.recieverText}>{data.message}</Text>
                   <Text style={styles.recieverName}>{data.displayName}</Text>
+                  <Text style={styles.recieverText}>{data.message}</Text>
                 </View>
               )
             )}
@@ -218,7 +249,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: theme.primaryBlue,
     alignSelf: "flex-start",
-    borderRadius: 20,
+    borderRadius: 15,
     marginLeft: 15,
     marginBottom: 20,
     maxWidth: "75%",
@@ -228,9 +259,10 @@ const styles = StyleSheet.create({
   senderText: { color: "black", fontSize: 15 },
   recieverName: {
     position: "absolute",
-    bottom: -20,
+    bottom: -15,
     color: "grey",
-    fontSize: 12,
+    fontSize: 10,
+    marginLeft: 5,
   },
   textInput: {
     bottom: 0,

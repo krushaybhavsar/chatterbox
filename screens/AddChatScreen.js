@@ -15,6 +15,7 @@ const AddChatScreen = ({ navigation }) => {
       .collection("chats")
       .add({
         chatName: input,
+        chatSize: 0,
       })
       .then(() => {
         navigation.goBack();
