@@ -14,30 +14,43 @@ import { Keyboard } from "react-native";
 import firebase from "firebase";
 import { db, auth } from "../firebase";
 import { LogBox } from "react-native";
+import moment from "moment";
+import MessageOptions from "../components/MessageOptions";
 
-LogBox.ignoreLogs(["Setting a timer"]);
+console.warn = () => {};
 
 const ChatScreen = ({ navigation, route }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
+  const [messageOptionsVisibility, setMessageOptionsVisibility] =
+    useState(false);
+
+  let time = moment().format("LLLL");
 
   const scrollViewRef = useRef();
+  const messageOptions = useRef();
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
       () => {
-        scrollViewRef.current.scrollToEnd({ animated: true });
+        setTimeout(
+          () => scrollViewRef.current.scrollToEnd({ animated: true }),
+          100
+        );
       }
     );
-    const keyboardDidHideListener = Keyboard.addListener(
-      "keyboardDidHide",
-      () => {
-        scrollViewRef.current.scrollToEnd({ animated: true });
-      }
-    );
+    // const keyboardDidHideListener = Keyboard.addListener(
+    //   "keyboardDidHide",
+    //   () => {
+    //     setTimeout(
+    //       () => scrollViewRef.current.scrollToEnd({ animated: true }),
+    //       100
+    //     );
+    //   }
+    // );
     return () => {
-      keyboardDidHideListener.remove();
+      // keyboardDidHideListener.remove();
       keyboardDidShowListener.remove();
     };
   }, []);
@@ -138,6 +151,50 @@ const ChatScreen = ({ navigation, route }) => {
     return unsubscribe;
   }, [route]);
 
+  const formatTime = (data) => {
+    var stringTime = "Just now";
+    if (
+      data.timestamp !== null &&
+      moment(
+        (data.timestamp.toDate() + "").substring(0, 24),
+        "ddd MMM DD YYYY HH:mm:ss"
+      ).fromNow() !== "in a few seconds"
+    ) {
+      if (
+        moment(
+          (data.timestamp.toDate() + "").substring(0, 24),
+          "ddd MMM DD YYYY HH:mm:ss"
+        )
+          .fromNow()
+          .indexOf("hour") !== -1
+      ) {
+        stringTime = moment(
+          (data.timestamp.toDate() + "").substring(0, 24)
+        ).format("hh:mm A");
+      } else {
+        stringTime = moment(
+          (data.timestamp.toDate() + "").substring(0, 24),
+          "ddd MMM DD YYYY HH:mm:ss"
+        ).fromNow();
+      }
+    }
+    return stringTime;
+  };
+
+  const deleteMessage = (docID) => {
+    db.collection("chats")
+      .doc(route.params.id)
+      .collection("messages")
+      .doc(docID)
+      .delete()
+      .then(() => {
+        console.log("Text message successfully deleted");
+      })
+      .catch((error) => {
+        console.error("Error removing document: ", error);
+      });
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
       <StatusBar barStyle="light" backgroundColor="#2C6BED" />
@@ -146,57 +203,55 @@ const ChatScreen = ({ navigation, route }) => {
         style={styles.container}
         keyboardVerticalOffset={90}
       >
-        {/* <TouchableWithoutFeedback
-          onPress={Keyboard.dismiss}
-          style={{ height: "100%" }}
-        > */}
+        {/* <MessageOptions /> */}
+
         <>
           <ScrollView
             contentContainerStyle={{ paddingTop: 15 }}
             ref={scrollViewRef}
             onContentSizeChange={() =>
-              scrollViewRef.current.scrollToEnd({ animated: true })
+              setTimeout(
+                () => scrollViewRef.current.scrollToEnd({ animated: true }),
+                10
+              )
             }
           >
-            {messages.map(({ id, data }) =>
+            {messages.map(({ id, data }, index) =>
               data.email === auth.currentUser.email ? (
                 <View key={id} style={styles.sender}>
-                  {/* <Avatar
+                  <Avatar
                     rounded
-                    size={30}
-                    containerStyle={{
-                      position: "absolute",
-                      bottom: -15,
-                      right: -5,
-                    }}
-                    position="absolute"
-                    bottom={-15}
-                    right={-5}
+                    size={35}
                     source={{
                       uri: data.photoURL,
                     }}
-                  /> */}
-                  <Text style={styles.senderText}>{data.message}</Text>
+                    position="absolute"
+                    right={-40}
+                  />
+                  <Text
+                    style={styles.senderText}
+                    onPress={() => deleteMessage(messages[index].id)}
+                  >
+                    {data.message}
+                  </Text>
+                  <Text style={styles.senderTimeSent}>{formatTime(data)}</Text>
                 </View>
               ) : (
-                <View key={id} style={styles.reciever}>
-                  {/* <Avatar
-                    position="absolute"
-                    containerStyle={{
-                      position: "absolute",
-                      bottom: -15,
-                      right: -5,
-                    }}
-                    bottom={-15}
-                    left={-5}
+                <View key={id} style={styles.receiver}>
+                  <Avatar
                     rounded
-                    size={30}
+                    size={35}
                     source={{
                       uri: data.photoURL,
                     }}
-                  /> */}
-                  <Text style={styles.recieverName}>{data.displayName}</Text>
-                  <Text style={styles.recieverText}>{data.message}</Text>
+                    position="absolute"
+                    left={-40}
+                  />
+                  <Text style={styles.receiverText}>{data.message}</Text>
+                  <Text style={styles.receiverTimeSent}>
+                    {" "}
+                    {formatTime(data)}
+                  </Text>
                 </View>
               )
             )}
@@ -209,6 +264,7 @@ const ChatScreen = ({ navigation, route }) => {
               style={styles.textInput}
               onSubmitEditing={sendMessage}
               blurOnSubmit={false}
+              // onPress={scrollViewRef.current.scrollToEnd({ animated: true })}
             />
             <TouchableOpacity activeOpacity={0.5} onPress={sendMessage}>
               <Ionicons name="send" size={24} color={theme.primaryBlue} />
@@ -239,30 +295,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECECEC",
     alignSelf: "flex-end",
     borderRadius: 15,
-    marginRight: 15,
-    marginBottom: 5,
-    maxWidth: "75%",
+    marginRight: 50,
+    marginBottom: 25,
+    maxWidth: "70%",
     position: "relative",
+    justifyContent: "center",
   },
-  reciever: {
+  receiver: {
     paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: theme.primaryBlue,
     alignSelf: "flex-start",
     borderRadius: 15,
-    marginLeft: 15,
-    marginBottom: 20,
-    maxWidth: "75%",
+    marginLeft: 50,
+    marginBottom: 25,
+    maxWidth: "70%",
     position: "relative",
   },
-  recieverText: { color: "white", fontSize: 15 },
+  receiverText: { color: "white", fontSize: 15 },
   senderText: { color: "black", fontSize: 15 },
-  recieverName: {
-    position: "absolute",
-    bottom: -15,
+  senderTimeSent: {
     color: "grey",
     fontSize: 10,
-    marginLeft: 5,
+    position: "absolute",
+    bottom: -15,
+    right: 5,
+  },
+  receiverTimeSent: {
+    color: "grey",
+    fontSize: 10,
+    position: "absolute",
+    bottom: -15,
+    left: 5,
   },
   textInput: {
     bottom: 0,
