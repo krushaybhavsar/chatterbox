@@ -1,21 +1,37 @@
 import React, { useLayoutEffect, useState, useRef, useEffect } from "react";
-import { TouchableOpacity } from "react-native";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TextInput,
+  Keyboard,
+  LogBox,
+} from "react-native";
 import { Avatar } from "react-native-elements";
 import { AntDesign, FontAwesome, Ionicons, Feather } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native";
-import { StatusBar } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
-import { Platform } from "react-native";
-import { ScrollView } from "react-native";
-import { TextInput } from "react-native";
 import { theme } from "../colors";
-import { Keyboard } from "react-native";
 import firebase from "firebase";
 import { db, auth } from "../firebase";
-import { LogBox } from "react-native";
 import moment from "moment";
 import MessageOptions from "../components/MessageOptions";
+
+/********* FONT *********/
+import * as Font from "expo-font";
+import AppLoading from "expo-app-loading";
+const fetchFont = () => {
+  return Font.loadAsync({
+    Merriweather: require("../assets/fonts/Merriweather/Merriweather-Bold.ttf"),
+    Raleway: require("../assets/fonts/Raleway/Raleway-Regular.ttf"),
+    RalewayBold: require("../assets/fonts/Raleway/Raleway-Bold.ttf"),
+  });
+};
+/************************/
 
 console.warn = () => {};
 
@@ -24,6 +40,7 @@ const ChatScreen = ({ navigation, route }) => {
   const [messages, setMessages] = useState([]);
   const [messageOptionsVisibility, setMessageOptionsVisibility] =
     useState(false);
+  const [fontLoaded, setFontLoaded] = useState(false);
 
   let time = moment().format("LLLL");
 
@@ -60,19 +77,36 @@ const ChatScreen = ({ navigation, route }) => {
       title: "Chat",
       headerBackTitleVisible: false,
       headerTitle: () => (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <Avatar
             rounded
             source={{
-              uri: messages[messages.length - 1]?.data.photoURL,
+              uri:
+                messages[messages.length - 1]?.data.photoURL ||
+                "https://firebasestorage.googleapis.com/v0/b/chatterbox-925c4.appspot.com/o/profile_placeholder.png?alt=media&token=9481124e-6d5c-406e-9a99-5b4013da7ff9",
             }}
           />
           <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
             style={{
-              color: "white",
+              color: theme.primaryBlue,
               marginLeft: 10,
-              fontWeight: "700",
+              marginRight: 42,
+              fontFamily: "RalewayBold",
               fontSize: 18,
+              maxWidth: 175,
+              // paddingHorizontal: 15,
+              // paddingVertical: 5,
+              borderRadius: 100,
+              // backgroundColor: "#f7f6f5",
+              textAlign: "right",
             }}
           >
             {route.params.chatName}
@@ -84,7 +118,7 @@ const ChatScreen = ({ navigation, route }) => {
           style={{ marginLeft: 15 }}
           onPress={navigation.goBack}
         >
-          <AntDesign name="arrowleft" size={24} color="white" />
+          <AntDesign name="arrowleft" size={24} color="black" />
         </TouchableOpacity>
       ),
       headerRight: () => (
@@ -97,10 +131,10 @@ const ChatScreen = ({ navigation, route }) => {
           }}
         >
           <TouchableOpacity activeOpacity={0.5}>
-            <Feather name="video" size={24} color="white" />
+            <Feather name="video" size={24} color="black" />
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.5}>
-            <Feather name="phone" size={24} color="white" />
+            <Feather name="phone" size={24} color="black" />
           </TouchableOpacity>
         </View>
       ),
@@ -195,9 +229,21 @@ const ChatScreen = ({ navigation, route }) => {
       });
   };
 
+  if (!fontLoaded) {
+    return (
+      <AppLoading
+        startAsync={fetchFont}
+        onError={() => console.log("Error loading fonts")}
+        onFinish={() => {
+          setFontLoaded(true);
+        }}
+      />
+    );
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
-      <StatusBar barStyle="light" backgroundColor="#2C6BED" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.lightWhite }}>
+      <StatusBar barStyle="dark-content" backgroundColor={theme.lightWhite} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
@@ -292,7 +338,7 @@ const styles = StyleSheet.create({
   sender: {
     paddingHorizontal: 10,
     paddingVertical: 10,
-    backgroundColor: "#ECECEC",
+    backgroundColor: theme.primaryBlue,
     alignSelf: "flex-end",
     borderRadius: 15,
     marginRight: 50,
@@ -304,7 +350,7 @@ const styles = StyleSheet.create({
   receiver: {
     paddingHorizontal: 10,
     paddingVertical: 10,
-    backgroundColor: theme.primaryBlue,
+    backgroundColor: "#ECECEC",
     alignSelf: "flex-start",
     borderRadius: 15,
     marginLeft: 50,
@@ -312,14 +358,15 @@ const styles = StyleSheet.create({
     maxWidth: "70%",
     position: "relative",
   },
-  receiverText: { color: "white", fontSize: 15 },
-  senderText: { color: "black", fontSize: 15 },
+  receiverText: { color: "black", fontSize: 15, fontFamily: "Raleway" },
+  senderText: { color: theme.lightWhite, fontSize: 15, fontFamily: "Raleway" },
   senderTimeSent: {
     color: "grey",
     fontSize: 10,
     position: "absolute",
     bottom: -15,
     right: 5,
+    fontFamily: "Raleway",
   },
   receiverTimeSent: {
     color: "grey",
@@ -327,17 +374,21 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -15,
     left: 5,
+    fontFamily: "Raleway",
   },
   textInput: {
     bottom: 0,
     height: 43,
     flex: 1,
     marginRight: 15,
-    backgroundColor: "#ECECEC",
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#d9d5d0",
     paddingVertical: 10,
     paddingHorizontal: 15,
     color: "grey",
     borderRadius: 30,
     fontSize: 16,
+    fontFamily: "Raleway",
   },
 });

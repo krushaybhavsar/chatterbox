@@ -4,8 +4,21 @@ import { ListItem, Avatar } from "react-native-elements";
 import { theme } from "../colors";
 import { db } from "../firebase";
 
+/********* FONT *********/
+import * as Font from "expo-font";
+import AppLoading from "expo-app-loading";
+const fetchFont = () => {
+  return Font.loadAsync({
+    Merriweather: require("../assets/fonts/Merriweather/Merriweather-Bold.ttf"),
+    Raleway: require("../assets/fonts/Raleway/Raleway-Regular.ttf"),
+    RalewayBold: require("../assets/fonts/Raleway/Raleway-Bold.ttf"),
+  });
+};
+/************************/
+
 const ChatListItem = ({ id, chatName, enterChat }) => {
   const [chatMessages, setChatMessages] = useState([]);
+  const [fontLoaded, setFontLoaded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = db
@@ -20,6 +33,18 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
     return unsubscribe;
   }, []);
 
+  if (!fontLoaded) {
+    return (
+      <AppLoading
+        startAsync={fetchFont}
+        onError={() => console.log("Error loading fonts")}
+        onFinish={() => {
+          setFontLoaded(true);
+        }}
+      />
+    );
+  }
+
   return (
     <ListItem
       onPress={() => enterChat(id, chatName)}
@@ -27,6 +52,7 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
       bottomDivider
       activeOpacity={0.9}
       underlayColor={theme.primaryBlue}
+      containerStyle={{ backgroundColor: theme.lightWhite }}
     >
       <Avatar
         rounded
@@ -37,7 +63,13 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
         }}
       />
       <ListItem.Content>
-        <ListItem.Title style={styles.chatTitle}>{chatName}</ListItem.Title>
+        <ListItem.Title
+          style={styles.chatTitle}
+          ellipsizeMode="tail"
+          numberOfLines={1}
+        >
+          {chatName}
+        </ListItem.Title>
         <ListItem.Subtitle
           style={styles.chatRecentMessage}
           numberOfLines={1}
@@ -57,9 +89,11 @@ export default ChatListItem;
 
 const styles = StyleSheet.create({
   chatTitle: {
-    fontWeight: "bold",
+    fontFamily: "RalewayBold",
+    paddingRight: 5,
   },
   chatRecentMessage: {
+    fontFamily: "Raleway",
     paddingRight: 10,
   },
 });

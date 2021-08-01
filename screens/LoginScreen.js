@@ -9,14 +9,28 @@ import {
 } from "react-native";
 import { Input, Image, Text } from "react-native-elements";
 import { auth } from "../firebase";
+import LoginMessages from "../assets/login-messages.svg";
+import LoadingScreen from "./LoadingScreen";
+
+/********* FONT *********/
+import * as Font from "expo-font";
+import AppLoading from "expo-app-loading";
+const fetchFont = () => {
+  return Font.loadAsync({
+    Merriweather: require("../assets/fonts/Merriweather/Merriweather-Bold.ttf"),
+    Raleway: require("../assets/fonts/Raleway/Raleway-Regular.ttf"),
+    RalewayBold: require("../assets/fonts/Raleway/Raleway-Bold.ttf"),
+  });
+};
+/************************/
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fontLoaded, setFontLoaded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((authUser) => {
-      console.log(authUser);
       if (authUser) {
         navigation.replace("Home");
       }
@@ -31,21 +45,50 @@ const LoginScreen = ({ navigation }) => {
       .catch((error) => alert(error));
   };
 
+  if (!fontLoaded) {
+    return (
+      <AppLoading
+        startAsync={fetchFont}
+        onError={() => console.log("Error loading fonts")}
+        onFinish={() => {
+          setFontLoaded(true);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light" backgroundColor="#2C6BED" />
-      <Image
-        source={require("../assets/login_1.png")}
-        style={styles.loginImage}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor={theme.lightWhite} />
+      <Text
+        style={{
+          color: theme.primaryBlue,
+          fontSize: 26,
+          fontFamily: "RalewayBold",
+        }}
+      >
+        {"Welcome to Chatterbox"}
+      </Text>
+      <Text
+        style={{
+          color: theme.darkBlack,
+          fontSize: 18,
+          fontFamily: "Raleway",
+        }}
+      >
+        {"Let's get chatting!"}
+      </Text>
+      <LoginMessages height={250} width={300} />
       <View style={styles.inputContainer}>
         <Input
+          inputStyle={{ fontFamily: "Raleway" }}
           placeholder="Email"
           type="email"
           value={email}
           onChangeText={(text) => setEmail(text)}
         />
         <Input
+          inputStyle={{ fontFamily: "Raleway" }}
           placeholder="Password"
           secureTextEntry
           type="password"
@@ -58,7 +101,13 @@ const LoginScreen = ({ navigation }) => {
         style={styles.loginButton}
         onPress={signIn}
       >
-        <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
+        <Text
+          style={{
+            color: theme.lightWhite,
+            fontSize: 16,
+            fontFamily: "RalewayBold",
+          }}
+        >
           {"Login"}
         </Text>
       </TouchableOpacity>
@@ -68,12 +117,15 @@ const LoginScreen = ({ navigation }) => {
         onPress={() => navigation.navigate("Register")}
       >
         <Text
-          style={{ color: theme.primaryBlue, fontSize: 16, fontWeight: "bold" }}
+          style={{
+            color: theme.primaryBlue,
+            fontSize: 16,
+            fontFamily: "RalewayBold",
+          }}
         >
-          {"Sign Up"}
+          {"I'm new to Chatterbox!"}
         </Text>
       </TouchableOpacity>
-      <View style={{ height: 100 }} />
     </View>
   );
 };
@@ -86,24 +138,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    backgroundColor: "white",
-  },
-  loginImage: {
-    width: 270,
-    height: 230,
-    marginRight: 15,
+    backgroundColor: theme.lightWhite,
   },
   inputContainer: {
     width: 300,
-    backgroundColor: "white",
-    borderRadius: 15,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 7 },
-    paddingHorizontal: 7,
-    paddingTop: 15,
+    backgroundColor: theme.lightWhite,
     marginBottom: 15,
+    fontFamily: "Raleway",
   },
   loginButton: {
     width: 300,
@@ -117,10 +158,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     width: 300,
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderRadius: 10,
-    borderColor: theme.primaryBlue,
+    paddingVertical: 12,
     justifyContent: "center",
     alignItems: "center",
   },

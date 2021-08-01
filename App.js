@@ -1,8 +1,11 @@
 import "react-native-gesture-handler";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Easing } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import {
+  CardStyleInterpolators,
+  createStackNavigator,
+} from "@react-navigation/stack";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -14,10 +17,25 @@ import { theme } from "./colors";
 const Stack = createStackNavigator();
 
 const globalScreenOptions = {
-  headerStyle: { backgroundColor: theme.primaryBlue },
-  headerTitleStyle: { color: "white" },
-  headerTintColor: "white",
-  headerTitleAlign: "center",
+  // headerStyle: { backgroundColor: theme.primaryBlue },
+  // headerTitleStyle: { color: "white" },
+  // headerTintColor: "white",
+  // headerTitleAlign: "center",
+};
+
+const config = {
+  animation: "slide",
+  config: {
+    duration: 300,
+  },
+};
+
+const closeConfig = {
+  animation: "timing",
+  config: {
+    duration: 300,
+    easing: Easing.linear,
+  },
 };
 
 export default function App() {
@@ -26,19 +44,40 @@ export default function App() {
       <NavigationContainer>
         <Stack.Navigator
           // initialRouteName="Home"
-          screenOptions={globalScreenOptions}
+          screenOptions={{
+            gestureEnabled: true,
+            gestureDirection: "horizontal",
+            transitionSpec: {
+              open: config,
+              close: closeConfig,
+            },
+            headerStyle: { backgroundColor: theme.lightWhite },
+            cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+          }}
         >
           <Stack.Screen
             name="Login"
             component={LoginScreen}
-            options={{ title: "Let's Get Chatting!" }}
+            options={{
+              title: "Login",
+              headerShown: false,
+            }}
           />
           <Stack.Screen
             name="Register"
             component={RegisterScreen}
-            options={{ title: "Sign Up" }}
+            options={{
+              title: "Sign Up",
+              headerShown: false,
+            }}
           />
-          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              headerShown: true,
+            }}
+          />
           <Stack.Screen name="AddChat" component={AddChatScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
         </Stack.Navigator>
