@@ -10,7 +10,7 @@
   <li>Message deletion</li>
 </ul>
 
-### What I'm Currently Working On
+### Future Updates
 <ul>
   <li>Message editing capability</li>
   <li>File uploading and sharing</li>
