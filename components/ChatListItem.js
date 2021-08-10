@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native";
 import { ListItem, Avatar } from "react-native-elements";
 import { theme } from "../colors";
 import { db } from "../firebase";
@@ -16,7 +16,14 @@ const fetchFont = () => {
 };
 /************************/
 
-const ChatListItem = ({ id, chatName, enterChat }) => {
+const ChatListItem = ({
+  setSelectedChats,
+  selectedChats,
+  id,
+  chatName,
+  chatImage,
+  enterChat,
+}) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [fontLoaded, setFontLoaded] = useState(false);
 
@@ -29,7 +36,6 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
       .onSnapshot((snapshot) =>
         setChatMessages(snapshot.docs.map((doc) => doc.data()))
       );
-
     return unsubscribe;
   }, []);
 
@@ -47,19 +53,22 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
 
   return (
     <ListItem
-      onPress={() => enterChat(id, chatName)}
+      onPress={() => enterChat(id, chatName, chatImage)}
+      onLongPress={() => setSelectedChats([...selectedChats, id])}
       key={id}
       bottomDivider
       activeOpacity={0.9}
       underlayColor={theme.primaryBlue}
-      containerStyle={{ backgroundColor: theme.lightWhite }}
+      containerStyle={{
+        backgroundColor: selectedChats.includes(id)
+          ? theme.lightGreen
+          : theme.lightWhite,
+      }}
     >
       <Avatar
         rounded
         source={{
-          uri:
-            chatMessages?.[0]?.photoURL ||
-            "https://firebasestorage.googleapis.com/v0/b/chatterbox-925c4.appspot.com/o/profile_placeholder.png?alt=media&token=9481124e-6d5c-406e-9a99-5b4013da7ff9",
+          uri: chatImage,
         }}
       />
       <ListItem.Content>
@@ -75,10 +84,13 @@ const ChatListItem = ({ id, chatName, enterChat }) => {
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {chatMessages?.[0]?.displayName + ": " === "undefined: "
+          {chatMessages?.[0]?.displayName === undefined
             ? "Type the first message and get chatting!"
-            : chatMessages?.[0]?.displayName + ": "}
-          {chatMessages?.[0]?.message}
+            : chatMessages?.[0]?.displayName +
+              ": " +
+              (chatMessages?.[0]?.type === "text"
+                ? chatMessages?.[0]?.message
+                : "Image 📷")}
         </ListItem.Subtitle>
       </ListItem.Content>
     </ListItem>
@@ -95,5 +107,11 @@ const styles = StyleSheet.create({
   chatRecentMessage: {
     fontFamily: "Raleway",
     paddingRight: 10,
+  },
+  topBarIconContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: 80,
+    marginRight: 20,
   },
 });

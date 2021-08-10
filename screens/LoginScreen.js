@@ -11,6 +11,7 @@ import { Input, Image, Text } from "react-native-elements";
 import { auth } from "../firebase";
 import LoginMessages from "../assets/login-messages.svg";
 import LoadingScreen from "./LoadingScreen";
+import Toast from "react-native-simple-toast";
 
 /********* FONT *********/
 import * as Font from "expo-font";
@@ -42,7 +43,7 @@ const LoginScreen = ({ navigation }) => {
   const signIn = () => {
     auth
       .signInWithEmailAndPassword(email, password)
-      .catch((error) => alert(error));
+      .catch((error) => Toast.show(error.message, Toast.LONG));
   };
 
   if (!fontLoaded) {

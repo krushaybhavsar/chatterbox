@@ -5,12 +5,13 @@ import { theme } from "../colors";
 import { auth, db } from "../firebase";
 import UserPermissions from "../utilities/UserPermissions";
 import * as ImagePicker from "expo-image-picker";
-import MessageOptions from "../components/MessageOptions";
-import { Avatar } from "react-native-elements/dist/avatar/Avatar";
+import Toast from "react-native-simple-toast";
+import * as Firebase from "firebase";
 
 /********* FONT *********/
 import * as Font from "expo-font";
 import AppLoading from "expo-app-loading";
+import { ActivityIndicator } from "react-native";
 const fetchFont = () => {
   return Font.loadAsync({
     Raleway: require("../assets/fonts/Raleway/Raleway-Regular.ttf"),
@@ -26,8 +27,9 @@ const RegisterScreen = ({ navigation }) => {
   // const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [imageUrl, setImageUrl] = useState(defaultURL);
+  const [imageURI, setImageURI] = useState(defaultURL);
   const [fontLoaded, setFontLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -35,14 +37,46 @@ const RegisterScreen = ({ navigation }) => {
     });
   }, [navigation]);
 
-  const register = () => {
+  const uploadProfilePicture = async () => {
+    const blob = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function () {
+        reject(new TypeError("Network request failed"));
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", imageURI, true);
+      xhr.send(null);
+    });
+
+    const ref = Firebase.storage()
+      .ref()
+      .child(
+        "userProfilePictures/" +
+          imageURI.substring(imageURI.lastIndexOf("/") + 1)
+      );
+
+    return ref.put(blob).then((snapshot) => {
+      return snapshot.ref.getDownloadURL().then((url) => {
+        return url;
+      });
+    });
+  };
+
+  const register = async () => {
     if (name.trim().length > 1) {
+      setLoading(true);
       auth
         .createUserWithEmailAndPassword(email, password)
-        .then((authUser) => {
+        .then(async (authUser) => {
           authUser.user.updateProfile({
             displayName: name,
-            photoURL: imageUrl || defaultURL,
+            photoURL:
+              imageURI === defaultURL
+                ? defaultURL
+                : await uploadProfilePicture(),
           });
           db.collection("users")
             .doc(authUser.user.email)
@@ -53,12 +87,21 @@ const RegisterScreen = ({ navigation }) => {
               userEmail: authUser.user.email,
               userDisplayName: name,
             })
-            .catch((error) => alert(error));
+            .catch((error) => {
+              Toast.show(error.message, Toast.LONG);
+            })
+            .then(() => {
+              navigation.replace("Home");
+            });
         })
-        .catch((error) => alert(error.message));
-      navigation.replace("Home");
+        .catch((error) => {
+          Toast.show(error.message, Toast.LONG);
+        });
     } else {
-      alert("Your display name must be longer than 1 character!");
+      Toast.show(
+        "Your display name must be longer than 1 character!",
+        Toast.LONG
+      );
     }
   };
 
@@ -70,7 +113,7 @@ const RegisterScreen = ({ navigation }) => {
       aspect: [4, 3],
     });
     if (!result.cancelled) {
-      setImageUrl(result.uri);
+      setImageURI(result.uri);
     }
   };
 
@@ -104,13 +147,13 @@ const RegisterScreen = ({ navigation }) => {
               borderRadius: 200,
               borderWidth: 2,
               borderColor: theme.primaryBlue,
-              marginBottom: imageUrl === defaultURL ? 40 : 0,
+              marginBottom: imageURI === defaultURL ? 40 : 0,
             }}
             source={{
-              uri: imageUrl,
+              uri: imageURI,
             }}
           />
-          {imageUrl === defaultURL ? (
+          {imageURI === defaultURL ? (
             <TouchableOpacity
               activeOpacity={1}
               onPress={handlePickAvatar}
@@ -137,11 +180,11 @@ const RegisterScreen = ({ navigation }) => {
           ) : (
             <></>
           )}
-          {imageUrl !== defaultURL ? (
+          {imageURI !== defaultURL ? (
             <TouchableOpacity
               activeOpacity={0.5}
               style={styles.removeBtn}
-              onPress={() => setImageUrl(defaultURL)}
+              onPress={() => setImageURI(defaultURL)}
             >
               <Text
                 style={{
@@ -196,37 +239,42 @@ const RegisterScreen = ({ navigation }) => {
           onSubmitEditing={register}
         /> */}
       </View>
-
-      <TouchableOpacity
-        activeOpacity={0.5}
-        style={styles.signUpButton}
-        onPress={register}
-      >
-        <Text
-          style={{
-            color: theme.lightWhite,
-            fontSize: 16,
-            fontFamily: "RalewayBold",
-          }}
-        >
-          {"Sign Up"}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        activeOpacity={0.5}
-        style={styles.backToLogin}
-        onPress={() => navigation.navigate("Login")}
-      >
-        <Text
-          style={{
-            color: theme.primaryBlue,
-            fontSize: 16,
-            fontFamily: "RalewayBold",
-          }}
-        >
-          {"Back to login"}
-        </Text>
-      </TouchableOpacity>
+      {!loading ? (
+        <>
+          <TouchableOpacity
+            activeOpacity={0.5}
+            style={styles.signUpButton}
+            onPress={register}
+          >
+            <Text
+              style={{
+                color: theme.lightWhite,
+                fontSize: 16,
+                fontFamily: "RalewayBold",
+              }}
+            >
+              {"Sign Up"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.5}
+            style={styles.backToLogin}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text
+              style={{
+                color: theme.primaryBlue,
+                fontSize: 16,
+                fontFamily: "RalewayBold",
+              }}
+            >
+              {"Back to login"}
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <ActivityIndicator size="large" color={theme.primaryBlue} />
+      )}
     </View>
   );
 };
