@@ -11,19 +11,22 @@ import {
   ScrollView,
   TextInput,
   Keyboard,
-  LogBox,
 } from "react-native";
 import { Avatar } from "react-native-elements";
-import { AntDesign, FontAwesome, Ionicons, Feather } from "@expo/vector-icons";
+import { AntDesign, Ionicons, Feather } from "@expo/vector-icons";
 import { theme } from "../colors";
 import firebase from "firebase";
 import { db, auth } from "../firebase";
 import moment from "moment";
-import MessageOptions from "../components/MessageOptions";
+import UserPermissions from "../utilities/UserPermissions";
+import Toast from "react-native-simple-toast";
+import * as ImagePicker from "expo-image-picker";
 
 /********* FONT *********/
 import * as Font from "expo-font";
 import AppLoading from "expo-app-loading";
+import { Image } from "react-native-elements/dist/image/Image";
+import { ActivityIndicator } from "react-native";
 const fetchFont = () => {
   return Font.loadAsync({
     Merriweather: require("../assets/fonts/Merriweather/Merriweather-Bold.ttf"),
@@ -38,14 +41,10 @@ console.warn = () => {};
 const ChatScreen = ({ navigation, route }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [messageOptionsVisibility, setMessageOptionsVisibility] =
-    useState(false);
   const [fontLoaded, setFontLoaded] = useState(false);
-
-  let time = moment().format("LLLL");
+  const [loading, setLoading] = useState(false);
 
   const scrollViewRef = useRef();
-  const messageOptions = useRef();
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -57,17 +56,7 @@ const ChatScreen = ({ navigation, route }) => {
         );
       }
     );
-    // const keyboardDidHideListener = Keyboard.addListener(
-    //   "keyboardDidHide",
-    //   () => {
-    //     setTimeout(
-    //       () => scrollViewRef.current.scrollToEnd({ animated: true }),
-    //       100
-    //     );
-    //   }
-    // );
     return () => {
-      // keyboardDidHideListener.remove();
       keyboardDidShowListener.remove();
     };
   }, []);
@@ -87,9 +76,7 @@ const ChatScreen = ({ navigation, route }) => {
           <Avatar
             rounded
             source={{
-              uri:
-                messages[messages.length - 1]?.data.photoURL ||
-                "https://firebasestorage.googleapis.com/v0/b/chatterbox-925c4.appspot.com/o/profile_placeholder.png?alt=media&token=9481124e-6d5c-406e-9a99-5b4013da7ff9",
+              uri: route.params.chatImage,
             }}
           />
           <Text
@@ -102,8 +89,6 @@ const ChatScreen = ({ navigation, route }) => {
               fontFamily: "RalewayBold",
               fontSize: 18,
               maxWidth: 175,
-              // paddingHorizontal: 15,
-              // paddingVertical: 5,
               borderRadius: 100,
               // backgroundColor: "#f7f6f5",
               textAlign: "right",
@@ -142,30 +127,30 @@ const ChatScreen = ({ navigation, route }) => {
   }, [navigation, messages]);
 
   const sendMessage = () => {
-    const updateNumber = firebase.firestore.FieldValue.increment(1);
-
-    // messages[0]["data"]["displayName"] !== auth.currentUser.displayName
-    // db.collection("chats")
-    //   .doc(route.params.id)
-    //   .onSnapshot((snapshot) =>
-    //     // console.log(messages[snapshot.get("chatSize")]["data"]["displayName"])
-    //     // console.log(snapshot.get("chatSize"))
-    //     console.log(messages.length)
-    //   );
-
+    setLoading(true);
     if (input.trim() !== "") {
       db.collection("chats").doc(route.params.id).collection("messages").add({
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         message: input,
+        type: "text",
+        timeVisible: false,
         displayName: auth.currentUser.displayName,
         email: auth.currentUser.email,
         photoURL: auth.currentUser.photoURL,
       });
-      db.collection("chats").doc(route.params.id).update({
-        chatSize: updateNumber,
-      });
     }
     setInput("");
+    setLoading(false);
+  };
+
+  const setTimeVisible = (id, value) => {
+    db.collection("chats")
+      .doc(route.params.id)
+      .collection("messages")
+      .doc(id)
+      .update({
+        timeVisible: value,
+      });
   };
 
   useLayoutEffect(() => {
@@ -186,47 +171,97 @@ const ChatScreen = ({ navigation, route }) => {
   }, [route]);
 
   const formatTime = (data) => {
-    var stringTime = "Just now";
-    if (
-      data.timestamp !== null &&
-      moment(
-        (data.timestamp.toDate() + "").substring(0, 24),
-        "ddd MMM DD YYYY HH:mm:ss"
-      ).fromNow() !== "in a few seconds"
-    ) {
-      if (
-        moment(
-          (data.timestamp.toDate() + "").substring(0, 24),
-          "ddd MMM DD YYYY HH:mm:ss"
-        )
-          .fromNow()
-          .indexOf("hour") !== -1
-      ) {
-        stringTime = moment(
-          (data.timestamp.toDate() + "").substring(0, 24)
-        ).format("hh:mm A");
-      } else {
-        stringTime = moment(
-          (data.timestamp.toDate() + "").substring(0, 24),
-          "ddd MMM DD YYYY HH:mm:ss"
-        ).fromNow();
-      }
-    }
-    return stringTime;
+    return moment(
+      (data.timestamp.toDate() + "").substring(0, 24),
+      "ddd MMM DD YYYY HH:mm:ss"
+    ).format("h:mm A");
   };
 
-  const deleteMessage = (docID) => {
-    db.collection("chats")
+  const deleteMessage = async (docID) => {
+    setLoading(true);
+    await db
+      .collection("chats")
+      .doc(route.params.id)
+      .collection("messages")
+      .doc(docID)
+      .get()
+      .then((doc) => {
+        if (doc.data().type === "file") {
+          var fileRef = firebase.storage().refFromURL(doc.data().message);
+          fileRef.delete().catch(function (error) {
+            Toast.show("An error occured.");
+            console.log(error);
+          });
+        }
+      });
+    await db
+      .collection("chats")
       .doc(route.params.id)
       .collection("messages")
       .doc(docID)
       .delete()
       .then(() => {
-        console.log("Text message successfully deleted");
+        Toast.show("Message deleted");
       })
       .catch((error) => {
         console.error("Error removing document: ", error);
       });
+    setLoading(false);
+  };
+
+  const uploadMedia = async (uri) => {
+    const blob = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function () {
+        reject(new TypeError("Network request failed"));
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", uri, true);
+      xhr.send(null);
+    });
+    const ref = firebase
+      .storage()
+      .ref()
+      .child("groupChatMedia/" + uri.substring(uri.lastIndexOf("/") + 1));
+
+    return ref.put(blob).then((snapshot) => {
+      return snapshot.ref.getDownloadURL().then((url) => {
+        return url;
+      });
+    });
+  };
+
+  const handleSelectPicture = async () => {
+    UserPermissions.getCameraPermission();
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowEditing: true,
+      aspect: [4, 3],
+    });
+    if (!result.cancelled) {
+      setLoading(true);
+      db.collection("chats")
+        .doc(route.params.id)
+        .collection("messages")
+        .add({
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          message: await uploadMedia(result.uri),
+          type: "file",
+          displayName: auth.currentUser.displayName,
+          email: auth.currentUser.email,
+          photoURL: auth.currentUser.photoURL,
+        })
+        .then(() => {
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error sending media: ", error);
+          Toast.show(error.message, Toast.LONG);
+        });
+    }
   };
 
   if (!fontLoaded) {
@@ -249,8 +284,6 @@ const ChatScreen = ({ navigation, route }) => {
         style={styles.container}
         keyboardVerticalOffset={90}
       >
-        {/* <MessageOptions /> */}
-
         <>
           <ScrollView
             contentContainerStyle={{ paddingTop: 15 }}
@@ -264,7 +297,24 @@ const ChatScreen = ({ navigation, route }) => {
           >
             {messages.map(({ id, data }, index) =>
               data.email === auth.currentUser.email ? (
-                <View key={id} style={styles.sender}>
+                <TouchableOpacity
+                  key={id}
+                  style={{
+                    padding: data.type === "text" ? 10 : 0,
+                    backgroundColor:
+                      data.type === "text" ? theme.primaryBlue : "transparent",
+                    alignSelf: "flex-end",
+                    borderRadius: 15,
+                    marginRight: 50,
+                    marginBottom: data.timeVisible ? 25 : 10,
+                    maxWidth: "70%",
+                    position: "relative",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.8}
+                  onPress={() => setTimeVisible(id, !data.timeVisible)}
+                  onLongPress={async () => await deleteMessage(id)}
+                >
                   <Avatar
                     rounded
                     size={35}
@@ -274,16 +324,38 @@ const ChatScreen = ({ navigation, route }) => {
                     position="absolute"
                     right={-40}
                   />
-                  <Text
-                    style={styles.senderText}
-                    onPress={() => deleteMessage(messages[index].id)}
-                  >
-                    {data.message}
-                  </Text>
-                  <Text style={styles.senderTimeSent}>{formatTime(data)}</Text>
-                </View>
+                  {data.type === "text" ? (
+                    <Text style={styles.senderText}>{data.message}</Text>
+                  ) : (
+                    <Image
+                      style={styles.imageMessage}
+                      source={{ uri: data.message }}
+                    />
+                  )}
+                  {data.timeVisible && (
+                    <Text style={styles.senderTimeSent}>
+                      {formatTime(data)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               ) : (
-                <View key={id} style={styles.receiver}>
+                <TouchableOpacity
+                  key={id}
+                  style={{
+                    padding: data.type === "text" ? 10 : 0,
+                    backgroundColor:
+                      data.type === "text" ? "#e3ddd5" : "transparent",
+                    // backgroundColor: "#ECECEC",
+                    alignSelf: "flex-start",
+                    borderRadius: 15,
+                    marginLeft: 50,
+                    marginBottom: data.timeVisible ? 25 : 10,
+                    maxWidth: "70%",
+                    position: "relative",
+                  }}
+                  activeOpacity={0.8}
+                  onPress={() => setTimeVisible(id, !data.timeVisible)}
+                >
                   <Avatar
                     rounded
                     size={35}
@@ -293,16 +365,46 @@ const ChatScreen = ({ navigation, route }) => {
                     position="absolute"
                     left={-40}
                   />
-                  <Text style={styles.receiverText}>{data.message}</Text>
-                  <Text style={styles.receiverTimeSent}>
-                    {" "}
-                    {formatTime(data)}
-                  </Text>
-                </View>
+                  {data.type === "text" ? (
+                    <Text style={styles.receiverText}>{data.message}</Text>
+                  ) : (
+                    <Image
+                      style={styles.imageMessage}
+                      source={{ uri: data.message }}
+                    />
+                  )}
+                  {data.timeVisible && (
+                    <Text style={styles.receiverTimeSent}>
+                      {formatTime(data)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               )
             )}
           </ScrollView>
           <View style={styles.footer}>
+            <TouchableOpacity
+              activeOpacity={0.5}
+              onPress={async () => {
+                await handleSelectPicture();
+              }}
+              style={{
+                width: 32,
+                height: 32,
+                justifyContent: "center",
+                alignItems: "center",
+                marginRight: 15,
+                marginLeft: 5,
+                opacity: loading ? 0.5 : 1,
+              }}
+              disabled={loading}
+            >
+              <Ionicons
+                name="image-outline"
+                size={32}
+                color={theme.primaryBlue}
+              />
+            </TouchableOpacity>
             <TextInput
               value={input}
               onChangeText={(text) => setInput(text)}
@@ -310,14 +412,20 @@ const ChatScreen = ({ navigation, route }) => {
               style={styles.textInput}
               onSubmitEditing={sendMessage}
               blurOnSubmit={false}
-              // onPress={scrollViewRef.current.scrollToEnd({ animated: true })}
             />
-            <TouchableOpacity activeOpacity={0.5} onPress={sendMessage}>
-              <Ionicons name="send" size={24} color={theme.primaryBlue} />
-            </TouchableOpacity>
+            {!loading ? (
+              <TouchableOpacity
+                activeOpacity={0.5}
+                onPress={sendMessage}
+                style={{ marginRight: 3 }}
+              >
+                <Ionicons name="send" size={24} color={theme.primaryBlue} />
+              </TouchableOpacity>
+            ) : (
+              <ActivityIndicator size="large" color={theme.primaryBlue} />
+            )}
           </View>
         </>
-        {/* </TouchableWithoutFeedback> */}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -332,31 +440,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     padding: 15,
-    // position: "absolute",
-    // bottom: 0,
-  },
-  sender: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: theme.primaryBlue,
-    alignSelf: "flex-end",
-    borderRadius: 15,
-    marginRight: 50,
-    marginBottom: 25,
-    maxWidth: "70%",
-    position: "relative",
-    justifyContent: "center",
-  },
-  receiver: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: "#ECECEC",
-    alignSelf: "flex-start",
-    borderRadius: 15,
-    marginLeft: 50,
-    marginBottom: 25,
-    maxWidth: "70%",
-    position: "relative",
   },
   receiverText: { color: "black", fontSize: 15, fontFamily: "Raleway" },
   senderText: { color: theme.lightWhite, fontSize: 15, fontFamily: "Raleway" },
@@ -390,5 +473,12 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     fontSize: 16,
     fontFamily: "Raleway",
+  },
+  imageMessage: {
+    height: 150,
+    width: 200,
+    maxHeight: 150,
+    maxWidth: 200,
+    borderRadius: 15,
   },
 });
