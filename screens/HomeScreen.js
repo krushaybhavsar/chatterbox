@@ -36,6 +36,7 @@ const HomeScreen = ({ navigation }) => {
   const [chats, setChats] = useState([]);
   const [fontLoaded, setFontLoaded] = useState(false);
   const [selectedChats, setSelectedChats] = useState([]);
+  const [chatDisplayContent, setChatDisplayContent] = useState([]);
 
   const signOutUser = () => {
     auth.signOut().then(() => {
@@ -44,18 +45,57 @@ const HomeScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    const unsubscribe = db.collection("chats").onSnapshot((snapshot) =>
-      setChats(
-        snapshot.docs
-          .map((doc) => ({
+    const unsubscribe = db.collection("chats").onSnapshot(async (snapshot) => {
+      async function handleChatDisplayContent(docID) {
+        return await db
+          .collection("chats")
+          .doc(docID)
+          .get()
+          .then(async (doc) => {
+            if (doc.exists) {
+              if (doc.data().chatType === "group") {
+                return [doc.data().chatName, doc.data().chatImage];
+              } else if (doc.data().chatType === "direct") {
+                var recieverUID = doc
+                  .data()
+                  .participants.filter(
+                    (participant) => participant !== auth.currentUser.uid
+                  )[0];
+                var info = [];
+                await db
+                  .collection("users")
+                  .where("registeredUserID", "==", recieverUID)
+                  .get()
+                  .then((querySnapshot) => {
+                    querySnapshot.forEach((document) => {
+                      info.push(document.data().userDisplayName);
+                      info.push(document.data().userImage);
+                    });
+                  });
+                return info;
+              }
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      }
+      var unfilteredChats = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+          return {
             id: doc.id,
-            data: doc.data(),
-          }))
-          .filter((chat) =>
-            chat["data"]["participants"].includes(auth.currentUser.uid)
-          )
-      )
-    );
+            chatName: (await handleChatDisplayContent(doc.id))[0],
+            chatImage: (await handleChatDisplayContent(doc.id))[1],
+            chatType: doc.data().chatType,
+            participants: doc.data().participants,
+          };
+        })
+      );
+      var filteredChats = await unfilteredChats.filter((chat) => {
+        return chat.participants.includes(auth.currentUser.uid);
+      });
+      setChats(filteredChats);
+    });
     return unsubscribe;
   }, []);
 
@@ -176,35 +216,81 @@ const HomeScreen = ({ navigation }) => {
                 Toast.show("Chat deleted");
               });
           } else {
-            await db
-              .collection("chats")
-              .doc(chat)
-              .update({
-                participants: participants.filter(
-                  (uid) => uid !== auth.currentUser.uid
-                ),
-              })
-              .then(() => {
-                Toast.show("You left the chat");
-              });
+            var isExsitingDM = false;
+            possibleDM = participants.filter(
+              (uid) => uid !== auth.currentUser.uid
+            );
+            if (possibleDM.length === 2) {
+              await db
+                .collection("chats")
+                .where("participants", "array-contains", possibleDM[0])
+                .where("chatType", "==", "direct")
+                .get()
+                .then((querySnapshot) => {
+                  querySnapshot.forEach((doc) => {
+                    if (doc.data().participants.includes(possibleDM[1])) {
+                      isExsitingDM = true;
+                    }
+                  });
+                })
+                .catch((error) => {
+                  console.log("Error getting documents: ", error);
+                });
+              if (isExsitingDM) {
+                await db
+                  .collection("chats")
+                  .doc(chat)
+                  .get()
+                  .then((doc) => {
+                    if (doc.data().chatImage !== defaultGCImage) {
+                      var fileRef = firebase
+                        .storage()
+                        .refFromURL(doc.data().chatImage);
+                      fileRef.delete().catch(function (error) {
+                        Toast.show("An error occured.");
+                        console.log(error);
+                      });
+                    }
+                  });
+                await db
+                  .collection("chats")
+                  .doc(chat)
+                  .delete()
+                  .then(() => {
+                    Toast.show("Chat deleted");
+                  });
+              } else {
+                await db
+                  .collection("chats")
+                  .doc(chat)
+                  .update({
+                    chatType: "direct",
+                    participants: possibleDM,
+                  })
+                  .then(() => {
+                    Toast.show("You left the chat");
+                  });
+              }
+            } else {
+              await db
+                .collection("chats")
+                .doc(chat)
+                .update({
+                  participants: participants.filter(
+                    (uid) => uid !== auth.currentUser.uid
+                  ),
+                })
+                .then(() => {
+                  Toast.show("You left the chat");
+                });
+            }
           }
         });
     });
     setSelectedChats([]);
-
-    // db.collection("chats")
-    //   .doc(chat)
-    //   .delete()
-    //   .then(() => {
-    //     setSelectedChats([]);
-    //     Toast.show("Successfully deleted");
-    //   })
-    //   .catch((error) => {
-    //     console.error("Error removing document: ", error);
-    //   });
   };
 
-  const enterChat = (id, chatName, chatImage) => {
+  const enterChat = (id, chatName, chatImage, chatType, participants) => {
     if (selectedChats.length !== 0 && !selectedChats.includes(id)) {
       setSelectedChats([...selectedChats, id]);
     } else if (selectedChats.length !== 0 && selectedChats.includes(id)) {
@@ -214,6 +300,8 @@ const HomeScreen = ({ navigation }) => {
         id,
         chatName,
         chatImage,
+        chatType,
+        participants,
       });
     }
   };
@@ -260,7 +348,7 @@ const HomeScreen = ({ navigation }) => {
         </View>
       ) : (
         <ScrollView style={styles.container}>
-          {chats.map(({ id, data: { chatName, chatImage } }) => (
+          {chats.map(({ id, chatName, chatImage, chatType, participants }) => (
             <ChatListItem
               setSelectedChats={setSelectedChats}
               selectedChats={selectedChats}
@@ -268,6 +356,8 @@ const HomeScreen = ({ navigation }) => {
               id={id}
               chatName={chatName}
               chatImage={chatImage}
+              chatType={chatType}
+              participants={participants}
               enterChat={enterChat}
             />
           ))}

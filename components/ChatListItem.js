@@ -22,6 +22,8 @@ const ChatListItem = ({
   id,
   chatName,
   chatImage,
+  chatType,
+  participants,
   enterChat,
 }) => {
   const [chatMessages, setChatMessages] = useState([]);
@@ -53,7 +55,7 @@ const ChatListItem = ({
 
   return (
     <ListItem
-      onPress={() => enterChat(id, chatName, chatImage)}
+      onPress={() => enterChat(id, chatName, chatImage, chatType, participants)}
       onLongPress={() => setSelectedChats([...selectedChats, id])}
       key={id}
       bottomDivider

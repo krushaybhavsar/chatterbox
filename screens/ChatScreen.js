@@ -1,4 +1,11 @@
-import React, { useLayoutEffect, useState, useRef, useEffect } from "react";
+import React, {
+  useLayoutEffect,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import {
   StyleSheet,
   Text,
@@ -43,8 +50,32 @@ const ChatScreen = ({ navigation, route }) => {
   const [messages, setMessages] = useState([]);
   const [fontLoaded, setFontLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [chatDisplayContent, setChatDisplayContent] = useState([]);
 
   const scrollViewRef = useRef();
+
+  const handleChatDisplayContent = async () => {
+    if (route.params.chatType === "group") {
+      setChatDisplayContent([route.params.chatName, route.params.chatImage]);
+    } else if (route.params.chatType === "direct") {
+      var recieverUID = route.params.participants.filter(
+        (participant) => participant !== auth.currentUser.uid
+      )[0];
+      var info = [];
+      await db
+        .collection("users")
+        .where("registeredUserID", "==", recieverUID)
+        .get()
+        .then((querySnapshot) => {
+          querySnapshot.forEach((doc) => {
+            info.push(doc.data().userDisplayName);
+            info.push(doc.data().userImage);
+          });
+        });
+      setChatDisplayContent(info);
+      console.log(chatDisplayContent);
+    }
+  };
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -62,6 +93,7 @@ const ChatScreen = ({ navigation, route }) => {
   }, []);
 
   useLayoutEffect(() => {
+    handleChatDisplayContent();
     navigation.setOptions({
       title: "Chat",
       headerBackTitleVisible: false,
@@ -76,7 +108,7 @@ const ChatScreen = ({ navigation, route }) => {
           <Avatar
             rounded
             source={{
-              uri: route.params.chatImage,
+              uri: chatDisplayContent[1],
             }}
           />
           <Text
@@ -94,7 +126,7 @@ const ChatScreen = ({ navigation, route }) => {
               textAlign: "right",
             }}
           >
-            {route.params.chatName}
+            {chatDisplayContent[0]}
           </Text>
         </View>
       ),

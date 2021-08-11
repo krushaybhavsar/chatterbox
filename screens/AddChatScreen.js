@@ -60,6 +60,16 @@ const AddChatScreen = ({ navigation }) => {
     });
   };
 
+  const enterChat = (id, chatName, chatImage, chatType, participants) => {
+    navigation.replace("Chat", {
+      id,
+      chatName,
+      chatImage,
+      chatType,
+      participants,
+    });
+  };
+
   const createChat = async () => {
     setLoading(true);
     var participantUIDs = [];
@@ -88,19 +98,19 @@ const AddChatScreen = ({ navigation }) => {
       if (participantUIDs.length === participantEmailInput.length) {
         // Checks if all emails are valid
         var isExsitingDM = false;
+        var existingDMInfo;
         if (participantUIDs.length === 1) {
           // Checks if new chat is already exisiting DM
           await db
             .collection("chats")
             .where("participants", "array-contains", auth.currentUser.uid)
-            // .where("participants", "array-contains", auth.currentUser.uid)
             .where("chatType", "==", "direct")
             .get()
             .then((querySnapshot) => {
               querySnapshot.forEach((doc) => {
                 if (doc.data().participants.includes(participantUIDs[0])) {
-                  console.log(doc.id, " => ", doc.data());
                   isExsitingDM = true;
+                  existingDMInfo = [doc.id, doc.data()];
                 }
               });
             })
@@ -126,6 +136,16 @@ const AddChatScreen = ({ navigation }) => {
           Toast.show(
             "You already have a direct message chat with this user",
             Toast.LONG
+          );
+          // console.log(existingDMInfo);
+          // id, chatName, chatImage, chatType, participants
+          // console.log(existingDMInfo[0]);
+          enterChat(
+            existingDMInfo[0],
+            existingDMInfo[1].chatName,
+            existingDMInfo[1].chatImage,
+            existingDMInfo[1].chatType,
+            existingDMInfo[1].participants
           );
         }
       }
@@ -311,12 +331,16 @@ const AddChatScreen = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.5}
           style={
-            !input || !participantEmailInput
+            (!input && participantEmailInput.length > 1) ||
+            participantEmailInput.length === 0
               ? styles.createButtonDisabled
               : styles.createButton
           }
           onPress={createChat}
-          disabled={!input || participantEmailInput.length === 0}
+          disabled={
+            (!input && participantEmailInput.length > 1) ||
+            participantEmailInput.length === 0
+          }
         >
           <Text
             style={{

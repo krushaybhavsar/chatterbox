@@ -71,27 +71,31 @@ const RegisterScreen = ({ navigation }) => {
       auth
         .createUserWithEmailAndPassword(email, password)
         .then(async (authUser) => {
-          authUser.user.updateProfile({
-            displayName: name,
-            photoURL:
-              imageURI === defaultURL
-                ? defaultURL
-                : await uploadProfilePicture(),
-          });
-          db.collection("users")
-            .doc(authUser.user.email)
-            .set({
-              registeredUserID: authUser.user.uid,
-              userInviteID:
-                Math.floor(Math.random() * (999999 - 100000 + 1)) + 100000,
-              userEmail: authUser.user.email,
-              userDisplayName: name,
-            })
-            .catch((error) => {
-              Toast.show(error.message, Toast.LONG);
+          authUser.user
+            .updateProfile({
+              displayName: name,
+              photoURL:
+                imageURI === defaultURL
+                  ? defaultURL
+                  : await uploadProfilePicture(),
             })
             .then(() => {
-              navigation.replace("Home");
+              db.collection("users")
+                .doc(authUser.user.email)
+                .set({
+                  registeredUserID: authUser.user.uid,
+                  userInviteID:
+                    Math.floor(Math.random() * (999999 - 100000 + 1)) + 100000,
+                  userEmail: authUser.user.email,
+                  userDisplayName: authUser.user.displayName,
+                  userImage: authUser.user.photoURL,
+                })
+                .catch((error) => {
+                  Toast.show(error.message, Toast.LONG);
+                })
+                .then(() => {
+                  navigation.replace("Home");
+                });
             });
         })
         .catch((error) => {
